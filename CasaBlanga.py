@@ -1,0 +1,1 @@
+print("Char2CC")
