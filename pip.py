@@ -1,17 +1,24 @@
-from flask import Flask, render_template
-from werkzeug.utils import redirect
+from flask import Flask, render_template, jsonify, send_file, redirect, send_from_directory
+from flask_login import LoginManager, logout_user, login_required, login_user
+from flask_restful import Api
 from data import db_session
-
-from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from data.database import Users, Exams, Parents
 
 from forms.loginform import LoginForm
 from forms.registerform import RegisterForm
-from data.database import Users, Parents
+
+from resources import exam_resources, demo_resources, users_resources
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yandexlyceum_secret_key'
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+api = Api(app)
+
+api.add_resource(exam_resources.ExamsListResource, "/api/exams/")
+api.add_resource(demo_resources.DemoListResource, "/api/demo/")
+api.add_resource(users_resources.UserResource, "/api/users/<int:user_id>/")
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -20,13 +27,15 @@ def load_user(user_id):
 
 @app.route("/")
 def index():
-    return render_template("index.html", title="BOMBA")
+    return render_template("index.html", title="lodusa")
 
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect("/")
+@app.route("/timetable")
+def timetable():
+    return render_template("timetable.html")
+
+@app.route("/demoexams")
+def demoexams():
+    return render_template("demoexams.html")
 
 @app.route("/login", methods=['GET', 'POST'])
 def login():
@@ -36,7 +45,7 @@ def login():
         user = db_sess.query(Users).filter(Users.Email == form.email.data).first()
         if user and form.phone.data:
             login_user(user, remember=form.remember_me.data)
-            return redirect("/register")
+            return redirect("/")
         return render_template('login.html',
                                message="Неправильный логин или пароль",
                                form=form)
@@ -80,6 +89,16 @@ def reqister():
         db_sess.commit()
         return redirect("/login")
     return render_template('register.html', title='Регистрация', form=form)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect("/")
+
+@app.route('/g.png')
+def download_g_png():
+    return send_from_directory('static', 'g.png', as_attachment=True)
 
 if __name__ == "__main__":
     db_session.global_init("db/db.db")

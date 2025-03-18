@@ -1,0 +1,22 @@
+[
+    {
+        "id": 1,
+        "Phone": "+1234567890",
+        "LastSchool": "Example High School",
+        "Name": "Alice",
+        "Surname": "Smith",
+        "Email": "alice@example.com",
+        "ParentId": 101,
+        "RoleId": 1
+    },
+    {
+        "id": 2,
+        "Phone": "+0987654321",
+        "LastSchool": "Another High School",
+        "Name": "Bob",
+        "Surname": "Johnson",
+        "Email": "bob@example.com",
+        "ParentId": 102,
+        "RoleId": 2
+    }
+]
