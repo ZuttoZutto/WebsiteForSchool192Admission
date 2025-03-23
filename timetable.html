@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.3.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet"
+          href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+          integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
+          crossorigin="anonymous">
+    <title>{{title}}</title>
+</head>
+<body>
+<header>
+    <nav class="navbar navbar-light bg-light">
+        <a class="navbar-brand" href="#">Расписание экзаменов</a>
+        <a class="btn btn-success" href="/">На главную</a>
+        {% if current_user.is_authenticated %}
+    <a class="navbar-brand" href="/logout">{{ current_user.Name }}</a>
+{% else %}
+    <p>
+        <a class="btn btn-primary " href="/register">Зарегистрироваться</a>
+        <a class="btn btn-success" href="/login">Войти</a>
+    </p>
+{% endif %}
+    </nav>
+</header>
+<!-- Begin page content -->
+<main role="main" class="container">
+    <!-- Ваша таблица -->
+    <table id="exam-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="exam-table-body">
+            <!-- Данные будут рендериться здесь -->
+        </tbody>
+    </table>
+
+    <script>
+        // Функция для рендеринга данных в HTML-таблице
+        function renderExamTable(exams) {
+            const tableBody = document.getElementById('exam-table-body');
+
+            exams.forEach(exam => {
+                const row = document.createElement('tr');
+
+                const idCell = document.createElement('td');
+                idCell.textContent = exam.id;
+                row.appendChild(idCell);
+
+                const nameCell = document.createElement('td');
+                const link = document.createElement('a'); // Создаем элемент <a>
+                link.href = `/exams/${exam.id}`; // Устанавливаем URL, например /exams/{id}
+                link.textContent = exam.Name; // Добавляем текст названия экзамена
+                nameCell.appendChild(link); // Вставляем ссылку в ячейку
+                row.appendChild(nameCell);
+
+                const dateCell = document.createElement('td');
+                dateCell.textContent = exam.Date;
+                row.appendChild(dateCell);
+
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Загрузка данных из JSON файла
+        fetch('/api/exams/')
+            .then(response => response.json())
+            .then(renderExamTable)
+            .catch(error => console.error('Failed to load exams:', error));
+    </script>
+    <a class="btn btn-success" href="/addexam">Добавить экзамен</a>
+</main>
+</body>
+</html>
