@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Главная страница</h1>
+<a href="http://127.0.0.1:5000/timetable">Расписание</a>
+<a href="http://127.0.0.1:5000/demoexams">Демонстрационные версии экзаменов</a>
+{% if current_user.RoleId == 1 %}
+    <a href="http://127.0.0.1:5000/demoexams">Демонстрационные версии экзаменов</a>
+{% elif current_user.RoleId == 2 %}
+    <a href="http://127.0.0.1:5000/demoexams">Демон</a>
+{% elif current_user.RoleId == 3 %}
+    <a href="http://127.0.0.1:5000/demoexams">ДемонLuxFERUUUO</a>
+{% endif %}
+{% endblock %}
