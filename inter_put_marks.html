@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Проставление оценок</h1>
+
+<table id="marks-table" class="display">
+    <thead>
+        <tr>
+            <th>Имя и фамилия пользователя</th>
+            <!-- Столбцы для субэкзаменов будут добавлены динамически -->
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
+<!-- Добавляем контейнер для сообщения -->
+<div id="no-mark-message" style="position:absolute; display:none; background-color:#fff; border:1px solid #000; padding:10px; z-index:101;">Поставьте оценку в эту ячейку и сможете добавить к ней комментарий.</div>
+
+<div id="comment-popup" class="popup hidden">
+    <textarea id="comment-textarea"></textarea>
+    <button id="save-comment">Сохранить</button>
+    <button id="cancel-edit">Отмена</button>
+</div>
+
+<script>
+    // Объявляем и инициализируем массив функций
+    const onLoadFunctions = [];
+
+    onLoadFunctions.push(() => {
+        let exam_id = "{{ exam_id }}";
+        // Вызов GET-запроса на адрес /marks/
+        fetch(`/api/usersmarks/${exam_id}/`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw Error(response.statusText);
+            return response.json();
+        })
+        .then(data => {
+            const tableHead = document.querySelector('#marks-table thead tr');
+            const tableBody = document.querySelector('#marks-table tbody');
+
+            // Очистка таблицы перед рендером
+            tableHead.innerHTML = '<th>Имя и фамилия пользователя</th>';
+            tableBody.innerHTML = '';
+
+            // Добавляем столбцы для субэкзаменов
+            data.subexams.forEach(subexam => {
+                const th = document.createElement('th');
+                th.textContent = subexam.Name;
+                tableHead.appendChild(th);
+            });
+
+            // Добавляем фиксированные столбцы после столбцов субэкзаменов
+            const thEmail = document.createElement('th');
+            thEmail.textContent = "Почта";
+            tableHead.appendChild(thEmail);
+
+            const thParentPhone = document.createElement('th');
+            thParentPhone.textContent = "Телефон родителя";
+            tableHead.appendChild(thParentPhone);
+
+            // Рендеринг строк таблицы
+            data.rows.forEach(row => {
+                console.log('Row:', row); // Логируем текущую строку
+
+                const tr = document.createElement('tr');
+                const tdName = document.createElement('td');
+                tdName.textContent = `${row.User.Name} ${row.User.Surname}`;
+                tr.appendChild(tdName);
+
+                // Добавляем ячейки с оценками
+                data.subexams.forEach(subexam => {
+                    console.log('Subexam:', subexam); // Логируем текущий субэкзамен
+
+                    const tdScore = document.createElement('td');
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.min = 0;
+                    input.max = 100;
+                    input.step = 1;
+
+                    // Проверяем наличие оценки
+                    const mark = row.Subexams[subexam.id]?.Mark ?? ''; // Оставляем пустую строку, если оценка отсутствует
+                    console.log('Mark:', mark); // Логируем текущую оценку
+                    input.value = mark;
+
+                    input.dataset.markId = row.Subexams[subexam.id]?.MarkId ?? '';
+                    input.dataset.userId = row.User.id; // Добавляем UserId в dataset
+                    input.dataset.subexamId = subexam.id; // Добавляем SubexamId в dataset
+                    input.addEventListener('change', updateMark.bind(null, data)); // Добавляем обработчик на изменение значения
+                    input.addEventListener('focus', showPopup.bind(null, data, input)); // Передаем data и input в showPopup
+                    // Убираем обработчик blur
+                    // input.addEventListener('blur', hidePopup); // Убираем этот обработчик
+                    tdScore.appendChild(input);
+                    tr.appendChild(tdScore);
+                });
+
+                // Добавляем ячейки для почты и телефона родителя
+                const tdEmail = document.createElement('td');
+                tdEmail.textContent = row.User.Email;
+                tr.appendChild(tdEmail);
+
+                const tdParentPhone = document.createElement('td');
+                tdParentPhone.textContent = row.User.ParentPhone ? row.User.ParentPhone : '-'; // Если нет телефона, выводим "-"
+                tr.appendChild(tdParentPhone);
+
+                tableBody.appendChild(tr);
+            });
+
+            // Инициализация DataTables после заполнения таблицы данными
+            $('#marks-table').DataTable();
+        })
+        .catch(error => {
+            console.error('Ошибка при получении данных:', error);
+        });
+    });
+
+    function showPopup(data, input, event) {
+        hidePopup(); // Сначала скрываем все предыдущие окна и сообщения
+
+        const activeCell = document.querySelector('.active-cell'); // Находим текущую активную ячейку
+        if (activeCell) {
+            activeCell.classList.remove('active-cell'); // Удаляем выделение с предыдущей ячейки
+        }
+
+        input.classList.add('active-cell'); // Делаем текущую ячейку активной
+
+        const commentPopup = document.getElementById('comment-popup');
+        const noMarkMessage = document.getElementById('no-mark-message');
+        const commentTextarea = document.getElementById('comment-textarea');
+        const saveButton = document.getElementById('save-comment');
+        const cancelButton = document.getElementById('cancel-edit');
+
+        const subexamId = input.dataset.subexamId;
+        const markId = Number(input.dataset.markId);
+        const userId = Number(input.dataset.userId);
+
+        // Извлекаем комментарий из полученного JSON
+        const comment = data.rows.find(row => row.User.id === userId)?.Subexams?.[subexamId]?.Comment;
+
+        // Проверяем наличие оценки
+        if (input.value.trim()) {
+            // Оценка есть, показываем окно для комментария
+            if (comment) {
+                commentTextarea.value = comment;
+            } else {
+                commentTextarea.value = ''; // Или какое-то другое значение по умолчанию
+            }
+
+            commentPopup.classList.remove('hidden');
+            // commentPopup.style.left = `${event.clientX}px`;
+            // commentPopup.style.top = `${event.clientY}px`;
+
+            // Добавляем обработчики для кнопок
+            saveButton.addEventListener('click', () => {
+                if (input.classList.contains('active-cell')) {
+                    const updatedComment = commentTextarea.value;
+                    fetch(`/api/comments/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            Comment: updatedComment,
+                            MarkId: markId
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) throw Error(response.statusText);
+                        return response.json();
+                    })
+                    .then(local_data => {
+                        console.log('Комментарий успешно обновлён!', local_data, markId);
+
+                        // Обновляем комментарий в data
+                        data.rows.find(row => row.User.id === userId).Subexams[subexamId].Comment = updatedComment;
+
+                        console.log('Данные обновлены:', local_data);
+                        hidePopup();
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при обновлении комментария:', error);
+                    });
+                }
+            });
+
+            cancelButton.addEventListener('click', hidePopup);
+        } else {
+            // Оценка отсутствует, показываем сообщение
+            // noMarkMessage.style.left = `${event.clientX}px`;
+            // noMarkMessage.style.top = `${event.clientY}px`;
+            noMarkMessage.style.display = 'block';
+        }
+    }
+
+    // Функция для скрытия всплывающего окна
+    function hidePopup() {
+        const commentPopup = document.getElementById('comment-popup');
+        commentPopup.classList.add('hidden');
+
+        const noMarkMessage = document.getElementById('no-mark-message');
+        noMarkMessage.style.display = 'none';
+
+        const activeCell = document.querySelector('.active-cell');
+        if (activeCell) {
+            activeCell.classList.remove('active-cell'); // Снимаем выделение с активной ячейки
+        }
+    }
+
+    // Функция для отправки POST-запроса при изменении оценки
+    function updateMark(data, event) {
+        const input = event.target;
+        const userId = Number(input.dataset.userId);
+        const subexamId = Number(input.dataset.subexamId);
+        const mark = input.value;
+
+        console.log(`Отправляемые данные: UserId=${userId}, SubexamId=${subexamId}, Mark=${mark}`);
+
+        // Отправляем POST-запрос на сервер
+        fetch('/api/usersmarks/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                UserId: userId,
+                SubexamId: subexamId,
+                Mark: mark
+            })
+        }).then(response => {
+            if (!response.ok) throw Error(response.statusText);
+            return response.json();
+        }).then(local_data => {
+            console.log('Оценка успешно обновлена!', local_data);
+
+            // Находим пользователя и субэкзамен в глобальной переменной data
+            const user = data.rows.find(row => row.User.id === userId);
+
+            if (user.Subexams.hasOwnProperty(String(subexamId))) {
+                // Если оценка уже существует, обновляем её
+                user.Subexams[subexamId].Mark = mark;
+                user.Subexams[subexamId].MarkId = local_data.id;  // Обновляем MarkId
+                user.Subexams[subexamId].Comment = local_data.Comment || '';  // Если комментарий вернулся, добавляем его
+            } else {
+                // Если оценка новая, добавляем её
+                const subexamName = data.subexams.find(item => item.id === subexamId)?.Name;
+                user.Subexams[subexamId] = {
+                    Name: subexamName,  // Название субэкзамена
+                    Mark: mark,
+                    MarkId: local_data.id,  // Добавляем MarkId
+                    Comment: local_data.Comment || ''  // Если комментарий вернулся, добавляем его
+                };
+                input.dataset.markId = local_data.id;
+                input.dataset.userId = userId; // Добавляем UserId в dataset
+                input.dataset.subexamId = subexamId; // Добавляем SubexamId в dataset
+            }
+
+            showPopup(data, input);
+            console.log(user);
+        }).catch(error => {
+            console.error('Ошибка при обновлении оценки:', error);
+        });
+    }
+
+    // Выполнить все функции при загрузке окна
+    window.onload = () => {
+        onLoadFunctions.forEach(func => func());
+    };
+</script>
+{% endblock %}
